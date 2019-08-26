@@ -1,0 +1,17 @@
+{
+  "name": "mosaic-me",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "9.0.4",
+    "react": "16.9.0",
+    "react-countdown-now": "^2.1.1",
+    "react-dom": "16.9.0",
+    "react-files": "^2.4.8"
+  }
+}

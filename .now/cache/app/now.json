@@ -1,0 +1,8 @@
+{
+  "name": "mosaic-me",
+  "version": 2,
+  "builds": [
+    { "src": "api/app.py", "use": "@now/python" },
+    { "src": "package.json", "use": "@now/next" }
+  ]
+}

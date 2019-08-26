@@ -1,0 +1,4 @@
+Pillow>=6.1.0
+sanic>=19.6.3
+sanic-cors>=0.9.9
+fs>=2.4.10
