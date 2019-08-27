@@ -30,12 +30,9 @@ const Home = () => (
       [mosaicPngURL, setMosaicPngURL] = useState(null),
       [loading, setLoading] = useState(false),
       percentCompressed = Math.round(
-        (tileFiles.reduce(
-          (done, file) => done + !file.hasOwnProperty("preview"),
-          0
-        ) /
-          tileFiles.length) *
-          100
+        (tileFiles.reduce((done, file) => done + (file.done ? 1 : 0), 0) *
+          100) /
+          tileFiles.length
       )
     ) => (
       <div>
@@ -54,11 +51,17 @@ const Home = () => (
             <Progress
               percent={percentCompressed}
               indicating={percentCompressed < 100}
+              progress
               autoSuccess
-              style={{ maxWidth: 400, margin: "0 auto", marginBottom: 30 }}
+              style={{
+                maxWidth: 400,
+                margin: "0 auto",
+                marginBottom: 30,
+                padding: 5
+              }}
             >
               {percentCompressed < 100
-                ? "Compressing tile images for Upload..."
+                ? "Compressing tile images for upload.."
                 : "Ready for upload"}
             </Progress>
           </div>
@@ -92,11 +95,6 @@ const Home = () => (
 
               const { width, height } = imgCached;
 
-              if (width === MIN_DIM || height === MIN_DIM) {
-                // this one is already G
-                resolve(file);
-              }
-
               if (width > height) {
                 buffer.width = (width / height) * MIN_DIM;
                 buffer.height = MIN_DIM;
@@ -112,8 +110,15 @@ const Home = () => (
               });
 
               const scaledDown = await pica.toBlob(buffer, "image/png");
-              files[idx] = scaledDown;
+              scaledDown.done = true;
+              console.log(
+                "adding scaledDown: ",
+                scaledDown,
+                "to files at idx ",
+                idx
+              );
               // set with any new files changed
+              files[idx] = scaledDown;
               setTileFiles(
                 files.map((f, idx2) => (idx2 === idx ? scaledDown : f))
               );
@@ -134,11 +139,9 @@ const Home = () => (
                     maxHeight: 50,
                     maxWidth: 50,
                     padding: 5,
-                    filter: file.preview ? "grayscale(100%)" : "none"
+                    filter: file.done ? "none" : "grayscale(100%)"
                   }}
-                  src={
-                    file.preview ? file.preview.url : URL.createObjectURL(file)
-                  }
+                  src={file.done ? URL.createObjectURL(file) : file.preview.url}
                   key={idx}
                 />
               ))}
@@ -194,7 +197,7 @@ const Home = () => (
               padding: 20,
               fontSize: "1.25em",
               marginTop: 10,
-              cursor: "pointer"
+              cursor: percentCompressed === 100 ? "pointer" : "auto"
             }}
             onClick={async () => {
               setLoading(true);
@@ -225,6 +228,7 @@ const Home = () => (
               setMosaicPngURL(URL.createObjectURL(png_bytes));
               setLoading(false);
             }}
+            disabled={percentCompressed !== 100}
           >
             Make Mosaic
           </button>
