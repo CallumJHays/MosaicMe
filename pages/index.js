@@ -1,6 +1,10 @@
 import React, { useState } from "react";
 import Files from "react-files";
 import Countdown from "react-countdown-now";
+import Pica from "pica";
+import { Progress } from "semantic-ui-react";
+
+const pica = Pica();
 
 let tryFallbackDevServer = false;
 const API = resource =>
@@ -16,11 +20,23 @@ const Home = () => (
       fontFamily: "Arial !important"
     }}
   >
+    <link
+      rel="stylesheet"
+      href="//cdn.jsdelivr.net/npm/semantic-ui@2.4.2/dist/semantic.min.css"
+    />
     {((
       [tileFiles, setTileFiles] = useState([]),
       [mainFile, setMainFile] = useState(null),
       [mosaicPngURL, setMosaicPngURL] = useState(null),
-      [loading, setLoading] = useState(false)
+      [loading, setLoading] = useState(false),
+      percentCompressed = Math.round(
+        (tileFiles.reduce(
+          (done, file) => done + !file.hasOwnProperty("preview"),
+          0
+        ) /
+          tileFiles.length) *
+          100
+      )
     ) => (
       <div>
         <pre style={{ fontSize: 12 }}>
@@ -33,6 +49,20 @@ const Home = () => (
           photos
         </pre>
         <h3>Step 1: Upload all the images you want to be in the mosaic</h3>
+        {isNaN(percentCompressed) ? null : (
+          <div>
+            <Progress
+              percent={percentCompressed}
+              indicating={percentCompressed < 100}
+              autoSuccess
+              style={{ maxWidth: 400, margin: "0 auto", marginBottom: 30 }}
+            >
+              {percentCompressed < 100
+                ? "Compressing tile images for Upload..."
+                : "Ready for upload"}
+            </Progress>
+          </div>
+        )}
         <Files
           style={{
             minHeight: 100,
@@ -49,7 +79,46 @@ const Home = () => (
             color: "gray",
             flexWrap: "wrap"
           }}
-          onChange={setTileFiles}
+          onChange={async files => {
+            for (const [idx, file] of files.entries()) {
+              const MIN_DIM = 200;
+              const buffer = document.createElement("canvas");
+
+              const imgCached = await new Promise(resolve => {
+                const res = new Image();
+                res.src = URL.createObjectURL(file);
+                res.onload = () => resolve(res);
+              });
+
+              const { width, height } = imgCached;
+
+              if (width === MIN_DIM || height === MIN_DIM) {
+                // this one is already G
+                resolve(file);
+              }
+
+              if (width > height) {
+                buffer.width = (width / height) * MIN_DIM;
+                buffer.height = MIN_DIM;
+              } else {
+                buffer.width = MIN_DIM;
+                buffer.height = (height / width) * MIN_DIM;
+              }
+
+              await pica.resize(imgCached, buffer, {
+                unsharpAmount: 80,
+                unsharpRadius: 0.6,
+                unsharpThreshold: 2
+              });
+
+              const scaledDown = await pica.toBlob(buffer, "image/png");
+              files[idx] = scaledDown;
+              // set with any new files changed
+              setTileFiles(
+                files.map((f, idx2) => (idx2 === idx ? scaledDown : f))
+              );
+            }
+          }}
           onError={(error, _file) =>
             alert(`Something went wrong. ${error.code}: ${error.message}`)
           }
@@ -59,11 +128,18 @@ const Home = () => (
         >
           {tileFiles.length === 0
             ? "Choose / drop images HERE"
-            : tileFiles.map(file => (
+            : tileFiles.map((file, idx) => (
                 <img
-                  style={{ maxHeight: 50, maxWidth: 50, padding: 5 }}
-                  src={file.preview.url}
-                  key={file.id}
+                  style={{
+                    maxHeight: 50,
+                    maxWidth: 50,
+                    padding: 5,
+                    filter: file.preview ? "grayscale(100%)" : "none"
+                  }}
+                  src={
+                    file.preview ? file.preview.url : URL.createObjectURL(file)
+                  }
+                  key={idx}
                 />
               ))}
         </Files>
